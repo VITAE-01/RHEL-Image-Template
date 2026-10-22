@@ -1,0 +1,13 @@
+name = "rhel96-generic"
+description = "RHEL 9.6 generic server installer"
+version = "0.0.1"
+packages = []
+modules = []
+enabled_modules = []
+groups = []
+distro = "rhel-9.6"
+
+[customizations]
+[customizations.installer]
+[customizations.installer.kickstart]
+contents = "text --non-interactive\nlang en_GB.UTF-8\nkeyboard --xlayouts='gb'\ntimezone Europe/London --utc\nrootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.\nzerombr\nclearpart --all --initlabel --disklabel=gpt\nautopart --noswap --type=lvm\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\nreboot\n"
