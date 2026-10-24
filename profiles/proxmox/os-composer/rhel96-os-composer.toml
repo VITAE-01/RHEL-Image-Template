@@ -1,5 +1,5 @@
 name = "rhel96-os-composer"
-description = "RHEL 9.6 os-composer server installer"
+description = "RHEL 9.6 os-composer server blueprint"
 version = "0.0.1"
 packages = []
 modules = []
@@ -10,4 +10,4 @@ distro = "rhel-9.6"
 [customizations]
 [customizations.installer]
 [customizations.installer.kickstart]
-contents = "text --non-interactive\nlang en_GB\nkeyboard --xlayouts='gb'\ntimezone Europe/London --utc\nrootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.\nreboot\nzerombr\nclearpart --all --initlabel --disklabel=gpt\nreqpart\npart /boot --fstype=xfs --ondisk=sda --size=1024\npart pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow\nvolgroup rhel pv.0\nlogvol / --vgname=rhel --name=root --fstype=xfs --size=5120\nlogvol /home --vgname=rhel --name=home --fstype=xfs --size=2048\nlogvol /opt --vgname=rhel --name=opt --fstype=xfs --size=7168\nlogvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=1024\nlogvol /var/cache/osbuild-worker --vgname=rhel --name=lv_osbuild_worker --fstype=xfs --size=20480\nlogvol /var/lib/osbuild-composer --vgname=rhel --name=lv_osbuild_composer --fstype=xfs --size=12288\nlogvol swap --vgname=rhel --name=swap --fstype=swap --size=2048\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\nfirstboot --disable\n"
+contents = "text --non-interactive\nrootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.\nreboot\nzerombr\nclearpart --all --initlabel --disklabel=gpt\nreqpart\npart /boot --fstype=xfs --ondisk=sda --size=1024\npart pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow\nvolgroup rhel pv.0\nlogvol / --vgname=rhel --name=root --fstype=xfs --size=5120\nlogvol /home --vgname=rhel --name=home --fstype=xfs --size=2048\nlogvol /opt --vgname=rhel --name=opt --fstype=xfs --size=7168\nlogvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=1024\nlogvol /var/cache/osbuild-worker --vgname=rhel --name=lv_osbuild_worker --fstype=xfs --size=20480\nlogvol /var/lib/osbuild-composer --vgname=rhel --name=lv_osbuild_composer --fstype=xfs --size=12288\nlogvol swap --vgname=rhel --name=swap --fstype=swap --size=2048\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\nfirstboot --disable\n"

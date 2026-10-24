@@ -1,14 +1,11 @@
 name = "rhel96-os-composer"
-description = "RHEL 9.6 os-composer server installer"
+description = "RHEL 9.6 os-composer server blueprint"
 version = "0.0.1"
 distro = "rhel-96"
 
 [customizations.installer.kickstart]
 contents = """
 text --non-interactive
-lang en_GB
-keyboard --xlayouts='gb'
-timezone Europe/London --utc
 rootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.
 reboot
 zerombr
