@@ -26,16 +26,60 @@ profiles/
 Each role has two blueprint representations: a blueprint file with multiline Kickstart content and a `.toml` file with that content encoded as a
 TOML string which describe the profile metadata and installer customization.
 
-All profiles use GPT partitioning and LVM-backed XFS filesystems, with DHCP
-configured on `ens18`. They differ in their workload-specific storage:
+The extensionless blueprint is used to generate the `.toml` with `composer-cli blueprints save <blueprint-name>`.
 
-| Profile | Additional or enlarged storage |
-| --- | --- |
-| `rhel96-generic` | Root: 4 GiB; `/opt`: 2 GiB |
-| `rhel96-jenkins` | Root: 5 GiB; `/opt`: 7 GiB; `/var/lib/jenkins`: 14 GiB |
-| `rhel96-os-composer` | Root: 5 GiB; `/opt`: 7 GiB; `/var/cache/osbuild-worker`: 20 GiB; `/var/lib/osbuild-composer`: 12 GiB |
+### Common settings
 
-The profiles also define `/boot`, `/home`, `/var/log/audit`, and swap volumes.
+All profiles share the following configuration:
+
+- Hybrid bootloader (`[customizations.bootloader] hybrid = true`), so the
+  image boots under both BIOS and UEFI firmware.
+- `gb` keyboard layout and `Europe/London` timezone. Can be customized to other timezone if required.
+- Non-interactive text install that ejects the installer media on reboot
+  (`reboot --eject`).
+- A `root` password and a `support` user in the `wheel` group with password encrypted hashes using `python3 -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'`.
+- GPT partitioning restricted to `sda` (`ignoredisk --only-use=sda`), a 1 GiB
+  XFS `/boot`, and an LVM volume group `rhel` holding XFS logical volumes.
+- DHCP and IPv6 auto-configuration on `ens18`.
+
+### Storage layout
+
+Separate `/tmp`, `/var`, `/var/tmp`, `/var/log` and `/var/log/audit` volumes
+are defined in every profile. Logical volume sizes (GiB): This is a very minimal setup so adjust sizes to fit your system workload.
+
+| Mount point | `rhel96-generic` | `rhel96-jenkins` | `rhel96-os-composer` |
+| --- | --- | --- | --- |
+| `/` | 4 | 5 | 5 |
+| `/tmp` | 1.5 | 4 | 4 |
+| `/var` | 4 | 4 | 4 |
+| `/var/tmp` | 2 | 2 | 3 |
+| `/var/log` | 2 | 4 | 3 |
+| `/var/log/audit` | 1 | 4 | 4 |
+| `/home` | 2 | 4 | 2 |
+| `/opt` | 2 | 5 | 5 |
+| `/var/lib/jenkins` | – | 14 | – |
+| `/var/cache/osbuild-worker` | – | – | 20 |
+| `/var/lib/osbuild-composer` | – | – | 10 |
+| swap | 2 | 2 | 2 |
+| **Total LVM** | **20.5** (24GB) | **48** (60GB) | **62** (64GB) |
+
+### Generic profile hardening
+
+`rhel96-generic` targets the **CIS Red Hat Enterprise Linux 9 Benchmark,
+Level 2 – Server**:
+
+- OpenSCAP remediation is applied at build time with the profile
+  `xccdf_org.ssgproject.content_profile_cis` from the `scap-security-guide`
+  data stream. To use a different data stream, set
+  `[customizations.openscap] datastream` to its absolute path in the image.
+- To find the openscap profile ID for image hardening - install the packages
+  `dnf install scap-security-guide openscap-scanner openscap`
+- Finf the profile that fits your system compliance
+  `oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml`
+- Pre generate profile ID blueprint template and modify to fit your requirements using
+  `oscap xccdf generate fix --profile=cis --fix-type=blueprint /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml`
+
+The Jenkins and OS Composer profiles do not include the OpenSCAP profile.
 
 ## System requirements
 * System type: A dedicated RHEL host machine
@@ -189,17 +233,32 @@ The image command downloads the built artifact. The metadata and compose logs ca
 
 Boot the downloaded artifact in a disposable VM before promoting it. Check
 that installation completes, the expected filesystems are present, and the
-VM receives network connectivity.
+VM receives network connectivity. For `rhel96-generic`, also run an OpenSCAP
+scan against the CIS profile to confirm compliance:
+
+```bash
+sudo oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis \
+  --report /root/rhel9-cis-report.html \
+  /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
+
+For further remediation plans, then use:
+```bash
+sudo oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis \
+  --remediate /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml \
+  --report /root/rhel9-cis-report.html \
+  --results /root/rhel9-cis-results.xml  \
+  /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
 
 ## Important installation and credential cautions
 
-- Kickstart uses `clearpart --all` and targets the disk `sda`. This erases
-  the selected disk during installation; Boot the VM with only
-  the intended build disk attached.
+- Kickstart uses `clearpart --all` and `ignoredisk --only-use=sda`. This
+  erases `sda` during installation and ignores any other disk; boot the VM
+  with only the intended disk attached, presented as `sda`.
 - Network configuration expects the interface name `ens18` and DHCP. Adapt
   the profile if the target VM uses a different interface or addressing
   policy.
-- All profiles currently contain the same encrypted root-password hash.
-  Use unique credentials and secure secret handling.
-- First-boot configuration is disabled in these profiles. Apply any required
-  machine-specific setup through your separate provisioning process.
+- All profiles currently use the same encrypted password hash for both
+  `root` and the `support` user, and `support` has `sudo` rights through
+  `wheel`. Use unique credentials per environment and secure secret handling.
