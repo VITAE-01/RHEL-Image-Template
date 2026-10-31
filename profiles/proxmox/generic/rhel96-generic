@@ -1,24 +1,100 @@
 name = "rhel96-generic"
-description = "RHEL 9.6 generic server blueprint"
+description = "RHEL 9.6 generic blueprint - CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server"
 version = "0.0.1"
 distro = "rhel-96"
+
+[customizations.bootloader]
+hybrid = true
+
+[customizations.locale]
+keyboard = "gb"
+
+[customizations.timezone]
+timezone = "Europe/London"
+
+[customizations.openscap]
+profile_id = "xccdf_org.ssgproject.content_profile_cis"
+# If your hardening data stream is not part of the 'scap-security-guide' package
+# provide the absolute path to it (from the root of the image filesystem).
+# datastream = "/usr/share/xml/scap/ssg/content/ssg-xxxxx-ds.xml"
 
 [customizations.installer.kickstart]
 contents = """
 text --non-interactive
-rootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.
-reboot
+reboot --eject
+firstboot --disable
+
+rootpw --iscrypted $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/
+user --name support --password $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/ --iscrypted --groups wheel
+
 zerombr
+ignoredisk --only-use=sda
 clearpart --all --initlabel --disklabel=gpt
 reqpart
 part /boot --fstype=xfs --ondisk=sda --size=1024
 part pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow
-volgroup rhel pv.0
+volgroup rhel --pesize=4096 pv.0
+logvol /tmp --vgname=rhel --name=tmp --fstype=xfs --size=1536
+logvol /var --vgname=rhel --name=var --fstype=xfs --size=4096
 logvol / --vgname=rhel --name=root --fstype=xfs --size=4096
 logvol /home --vgname=rhel --name=home --fstype=xfs --size=2048
 logvol /opt --vgname=rhel --name=opt --fstype=xfs --size=2048
 logvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=1024
 logvol swap --vgname=rhel --name=swap --fstype=swap --size=2048
+logvol /var/tmp --vgname=rhel --name=var_tmp --fstype=xfs --size=2048
+logvol /var/log --vgname=rhel --name=var_log --fstype=xfs --size=2048
 network --bootproto=dhcp --device=ens18 --ipv6=auto --activate
-firstboot --disable
 """
+
+[[packages]]
+name = "aide"
+version = "*"
+
+[[packages]]
+name = "sudo"
+version = "*"
+
+[[packages]]
+name = "libpwquality"
+version = "*"
+
+[[packages]]
+name = "systemd-journal-remote"
+version = "*"
+
+[[packages]]
+name = "firewalld"
+version = "*"
+
+[[packages]]
+name = "nftables"
+version = "*"
+
+[[packages]]
+name = "libselinux"
+version = "*"
+
+[[packages]]
+name = "cronie"
+version = "*"
+
+[[packages]]
+name = "postfix"
+version = "*"
+
+[[packages]]
+name = "chrony"
+version = "*"
+
+[[packages]]
+name = "audit-libs"
+version = "*"
+
+[[packages]]
+name = "audit"
+version = "*"
+
+[customizations.services]
+enabled = ["auditd","crond","firewalld","systemd-journald"]
+disabled = []
+masked = ["cups","nfs-server","rpcbind","dnsmasq","avahi-daemon","autofs","bluetooth","nftables"]
