@@ -1,13 +1,78 @@
 name = "rhel96-generic"
-description = "RHEL 9.6 generic server blueprint"
+description = "RHEL 9.6 generic blueprint - CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server"
 version = "0.0.1"
-packages = []
 modules = []
-enabled_modules = []
 groups = []
 distro = "rhel-9.6"
 
+[[packages]]
+name = "aide"
+version = "*"
+
+[[packages]]
+name = "sudo"
+version = "*"
+
+[[packages]]
+name = "libpwquality"
+version = "*"
+
+[[packages]]
+name = "systemd-journal-remote"
+version = "*"
+
+[[packages]]
+name = "firewalld"
+version = "*"
+
+[[packages]]
+name = "nftables"
+version = "*"
+
+[[packages]]
+name = "libselinux"
+version = "*"
+
+[[packages]]
+name = "cronie"
+version = "*"
+
+[[packages]]
+name = "postfix"
+version = "*"
+
+[[packages]]
+name = "chrony"
+version = "*"
+
+[[packages]]
+name = "audit-libs"
+version = "*"
+
+[[packages]]
+name = "audit"
+version = "*"
+
 [customizations]
+
+[customizations.bootloader]
+hybrid = true
+
+[customizations.locale]
+keyboard = "gb"
+
+[customizations.timezone]
+timezone = "Europe/London"
+
+[customizations.openscap]
+profile_id = "xccdf_org.ssgproject.content_profile_cis"
+
 [customizations.installer]
+
 [customizations.installer.kickstart]
-contents = "text --non-interactive\nrootpw --iscrypted $6$0H5rUfhEngv98lCs$7wKUxk0lB6PuFCbeAYCC2Ce47jEJxjHo45505lub7uZRItly62G9fFx7l1W40k4NPmNQ93MCYijdvU0P9wafX.\nreboot\nzerombr\nclearpart --all --initlabel --disklabel=gpt\nreqpart\npart /boot --fstype=xfs --ondisk=sda --size=1024\npart pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow\nvolgroup rhel pv.0\nlogvol / --vgname=rhel --name=root --fstype=xfs --size=4096\nlogvol /home --vgname=rhel --name=home --fstype=xfs --size=2048\nlogvol /opt --vgname=rhel --name=opt --fstype=xfs --size=2048\nlogvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=1024\nlogvol swap --vgname=rhel --name=swap --fstype=swap --size=2048\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\nfirstboot --disable\n"
+contents = "text --non-interactive\nreboot --eject\nfirstboot --disable\n\nrootpw --iscrypted $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/\nuser --name support --password $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/ --iscrypted --groups wheel\n\nzerombr\nignoredisk --only-use=sda\nclearpart --all --initlabel --disklabel=gpt\nreqpart\npart /boot --fstype=xfs --ondisk=sda --size=1024\npart pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow\nvolgroup rhel --pesize=4096 pv.0\nlogvol /tmp --vgname=rhel --name=tmp --fstype=xfs --size=1536\nlogvol /var --vgname=rhel --name=var --fstype=xfs --size=4096\nlogvol / --vgname=rhel --name=root --fstype=xfs --size=4096\nlogvol /home --vgname=rhel --name=home --fstype=xfs --size=2048\nlogvol /opt --vgname=rhel --name=opt --fstype=xfs --size=2048\nlogvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=1024\nlogvol swap --vgname=rhel --name=swap --fstype=swap --size=2048\nlogvol /var/tmp --vgname=rhel --name=var_tmp --fstype=xfs --size=2048\nlogvol /var/log --vgname=rhel --name=var_log --fstype=xfs --size=2048\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\n"
+
+[customizations.services]
+enabled = ["auditd", "crond", "firewalld", "systemd-journald"]
+disabled = []
+masked = ["cups", "nfs-server", "rpcbind", "dnsmasq", "avahi-daemon", "autofs", "bluetooth", "nftables"]
