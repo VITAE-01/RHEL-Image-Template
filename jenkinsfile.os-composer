@@ -50,7 +50,7 @@ pipeline {
         } else {
         return '<input name="value" type="hidden" value=""><i>Only required for AWS</i>'
         }'''])
-        string defaultValue: 'feature/aa/os builder', description: 'Branch to build', name: 'AUTOMATION_BRANCH', trim: true
+        string defaultValue: 'feature/aa/os-builder', description: 'Branch to build', name: 'AUTOMATION_BRANCH', trim: true
     }
 
     stages {
