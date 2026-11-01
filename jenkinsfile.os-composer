@@ -1,0 +1,114 @@
+def osVersionTag(String version) {
+    return (version ==~ /\d+\.\d+/) ? version.replace('.', '') : ''
+}
+
+pipeline {
+    agent { label 'os-composer' }
+
+    options {
+        timestamps()
+        timeout(time: 3, unit: 'HOURS')
+        buildDiscarder logRotator(artifactDaysToKeepStr: '3', artifactNumToKeepStr: '3', daysToKeepStr: '', numToKeepStr: '3')
+    }
+
+    environment {
+        BLUEPRINT_NAME = "rhel${osVersionTag(params.OS_VERSION)}-${params.SYSTEM_WORKLOAD}"
+        BLUEPRINT_FILE = "profiles/${params.INFRASTRUCTURE_CENTER}/${params.SYSTEM_WORKLOAD}/${BLUEPRINT_NAME}.toml"
+        ARTIFACT_DIR   = 'artifacts'
+    }
+
+    parameters {
+        choice choices: ['9.6'], description: 'The RHEL OS version to build', name: 'OS_VERSION'
+        reactiveChoice choiceType: 'PT_SINGLE_SELECT', description: 'Platform the built image will be deployed on. Whether on proxmox or aws.', filterLength: 1, filterable: false, name: 'INFRASTRUCTURE_CENTER', randomName: 'choice-parameter-29186465889088', referencedParameters: 'OS_VERSION', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: "return ['Script error - check parameter config']"], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (OS_VERSION== "9.6") {
+        return ["proxmox", "aws"]
+        }'''])
+        reactiveChoice choiceType: 'PT_SINGLE_SELECT', description: 'Intended system role.', filterLength: 1, filterable: false, name: 'SYSTEM_WORKLOAD', randomName: 'choice-parameter-30116780822655', referencedParameters: 'OS_VERSION', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: "return ['Script error - check parameter config']"], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (OS_VERSION== "9.6") {
+        return ["generic", "jenkins", "os-composer"]
+        }'''])
+        reactiveChoice choiceType: 'PT_SINGLE_SELECT', description: 'The image format. proxmox builds an image installer ISO; aws builds an ami;', filterLength: 1, filterable: false, name: 'IMAGE_FORMAT', randomName: 'choice-parameter-27718535665744', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: "return ['Script error - check parameter config']"], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER== "proxmox") {
+        return ["image-installer"]
+        } else if (INFRASTRUCTURE_CENTER== "aws") {
+        return ["ami"]
+        }'''])
+        activeChoiceHtml choiceType: 'ET_FORMATTED_HTML', description: 'AWS access key ID used by Composer to upload the AMI.', name: 'AWS_ACCESS_KEY_ID', omitValueField: true, randomName: 'choice-parameter-28896119553921', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: 'return "<i>Script error - check parameter config</i>"'], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER == "aws") {
+        return '<input name="value" type="text" class="setting-input" placeholder="Enter AWS access key ID e.g A12345XYZ">'
+        } else {
+        return '<input name="value" type="hidden" value=""><i>Only required for AWS</i>'
+        }'''])
+        activeChoiceHtml choiceType: 'ET_FORMATTED_HTML', description: 'AWS secret access key used by Composer to upload the AMI', name: 'AWS_SECRET_ACCESS_KEY', omitValueField: true, randomName: 'choice-parameter-29522886469018', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: 'return "<i>Script error - check parameter config</i>"'], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER == "aws") {
+        return '<input name="value" type="password" class="setting-input" placeholder="AWS secret access key">'
+        } else {
+        return '<input name="value" type="hidden" value=""><i>Only required for AWS</i>'
+        }'''])
+        activeChoiceHtml choiceType: 'ET_FORMATTED_HTML', description: 'AWS region the AMI is registered in, for example eu-west-2.', name: 'AWS_REGION', omitValueField: true, randomName: 'choice-parameter-29751137355373', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: 'return "<i>Script error - check parameter config</i>"'], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER == "aws") {
+        return '<input name="value" type="text" class="setting-input" placeholder="Enter AWS region key e.g eu-west-2">'
+        } else {
+        return '<input name="value" type="hidden" value=""><i>Only required for AWS</i>'
+        }'''])
+        activeChoiceHtml choiceType: 'ET_FORMATTED_HTML', description: 'AWS S3 bucket for Composer to import image to AMI', name: 'AWS_S3_BUCKET', omitValueField: true, randomName: 'choice-parameter-30024355852668', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: 'return "<i>Script error - check parameter config</i>"'], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER == "aws") {
+        return '<input name="value" type="text" class="setting-input" placeholder="Enter S3 bucket name e.g my-bucket">'
+        } else {
+        return '<input name="value" type="hidden" value=""><i>Only required for AWS</i>'
+        }'''])
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!(params.INFRASTRUCTURE_CENTER in ['proxmox','aws']) || !(params.IMAGE_FORMAT in ['image-installer','ami'])) { 
+                        error 'Parameters are not set. ; Run job with "Build with Parameters".'
+                     }
+
+
+                    if (params.INFRASTRUCTURE_CENTER == 'aws') {
+                        def missing = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'AWS_S3_BUCKET'].findAll {
+                            !params[it]?.trim()
+                        }
+                        if (missing) {
+                            error "Missing AWS parameters: ${missing.join(', ')}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verify Package Sources') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    composer-cli sources list
+                    for source in $(composer-cli sources list); do
+                        echo "--- ${source}"
+                        composer-cli sources info "${source}"
+                    done
+                '''
+            }
+        }
+
+        stage('Push & Inspect Blueprint') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    composer-cli blueprints push "${BLUEPRINT_FILE}"
+                    composer-cli blueprints list
+                    composer-cli blueprints show "${BLUEPRINT_NAME}"
+                '''
+            }
+        }
+
+        stage('Depsolve Blueprint') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    composer-cli blueprints depsolve "${BLUEPRINT_NAME}" | tee depsolve.log
+                    if grep -q 'ERROR' depsolve.log; then
+                        echo "Dependency resolution failed for ${BLUEPRINT_NAME}"
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
+    }
+}
