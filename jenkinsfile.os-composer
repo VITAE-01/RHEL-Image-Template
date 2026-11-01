@@ -7,6 +7,8 @@ pipeline {
 
     options {
         timestamps()
+        // Cleanup deletes the blueprint from the shared Composer host, so only one build may run at a time.
+        disableConcurrentBuilds()
         timeout(time: 3, unit: 'HOURS')
         buildDiscarder logRotator(artifactDaysToKeepStr: '3', artifactNumToKeepStr: '3', daysToKeepStr: '', numToKeepStr: '3')
     }
@@ -14,7 +16,8 @@ pipeline {
     environment {
         BLUEPRINT_NAME = "rhel${osVersionTag(params.OS_VERSION)}-${params.SYSTEM_WORKLOAD}"
         BLUEPRINT_FILE = "profiles/${params.INFRASTRUCTURE_CENTER}/${params.SYSTEM_WORKLOAD}/${BLUEPRINT_NAME}.toml"
-        ARTIFACT_DIR   = 'artifacts'
+        ARTIFACT_DIR   = "profiles/${params.INFRASTRUCTURE_CENTER}/${params.SYSTEM_WORKLOAD}"
+        ISO_NAME       = "rhel-${osVersionTag(params.OS_VERSION)}-x86_64-${params.SYSTEM_WORKLOAD}.iso"
     }
 
     parameters {
@@ -74,19 +77,6 @@ pipeline {
             }
         }
 
-        stage('Verify Package Sources') {
-            steps {
-                sh '''#!/bin/bash
-                    set -euo pipefail
-                    composer-cli sources list
-                    for source in $(composer-cli sources list); do
-                        echo "--- ${source}"
-                        composer-cli sources info "${source}"
-                    done
-                '''
-            }
-        }
-
         stage('Push & Inspect Blueprint') {
             steps {
                 sh '''#!/bin/bash
@@ -111,5 +101,96 @@ pipeline {
             }
         }
 
+        stage('Start Compose') {
+            steps {
+                script {
+                    def output = sh(returnStdout: true, script: '''#!/bin/bash
+                        set -euo pipefail
+                        composer-cli compose start "${BLUEPRINT_NAME}" "${IMAGE_FORMAT}"
+                    ''').trim()
+                    echo output
+
+                    def uuid = output.readLines().find { it.contains('added to the queue') }?.tokenize()?.getAt(1)
+                    if (!(uuid ==~ /[0-9a-f-]{36}/)) {
+                        error "Could not read the compose UUID from: ${output}"
+                    }
+                    env.COMPOSE_UUID = uuid
+                    echo "Compose UUID: ${env.COMPOSE_UUID}"
+                }
+            }
+        }
+
+        stage('Monitor Compose') {
+            steps {
+                timeout(time: 150, unit: 'MINUTES') {
+                    script {
+                        while (true) {
+                            def status = sh(returnStdout: true,
+                                            script: 'composer-cli compose info "${COMPOSE_UUID}" | awk \'NR==1 {print $2}\'').trim()
+                            if (!status) {
+                                error 'Could not read compose status'
+                            }
+                            echo "Compose ${env.COMPOSE_UUID}: ${status}"
+
+                            if (status == 'FINISHED') {
+                                break
+                            }
+                            if (status == 'FAILED') {
+                                dir(env.ARTIFACT_DIR) {
+                                    sh 'composer-cli compose logs "${COMPOSE_UUID}" || true'
+                                }
+                                archiveArtifacts artifacts: "${env.ARTIFACT_DIR}/*-logs.tar", allowEmptyArchive: true
+                                error "Compose ${env.COMPOSE_UUID} failed. See the archived compose logs."
+                            }
+                            sleep time: 90, unit: 'SECONDS'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Artifact') {
+            when {
+                expression { params.INFRASTRUCTURE_CENTER == 'proxmox' }
+            }
+            steps {
+                dir(env.ARTIFACT_DIR) {
+                    sh '''#!/bin/bash
+                        set -euo pipefail
+                        composer-cli compose image "${COMPOSE_UUID}"
+
+                        shopt -s nullglob
+                        isos=("${COMPOSE_UUID}"*.iso)
+                        if [ "${#isos[@]}" -ne 1 ]; then
+                            echo "Expected one ISO for compose ${COMPOSE_UUID}, found ${#isos[@]}."
+                            exit 1
+                        fi
+
+                        mv "${isos[0]}" "${ISO_NAME}"
+                        tar -czf "${ISO_NAME}.tar.gz" "${ISO_NAME}"
+                        rm -f "${ISO_NAME}"
+                        ls -lh "${ISO_NAME}.tar.gz"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        cleanup {
+            script {
+                if (env.COMPOSE_UUID) {
+                    sh '''#!/bin/bash
+                        status=$(composer-cli compose info "${COMPOSE_UUID}" 2>/dev/null | awk 'NR==1 {print $2}')
+                        if [ "${status}" = "RUNNING" ]; then
+                            composer-cli compose cancel "${COMPOSE_UUID}" || true
+                        fi
+                        composer-cli compose delete "${COMPOSE_UUID}" || true
+                    '''
+                }
+            }
+            sh 'composer-cli blueprints delete "${BLUEPRINT_NAME}" || true'
+            cleanWs(deleteDirs: true, notFailBuild: true)
+        }
     }
 }
