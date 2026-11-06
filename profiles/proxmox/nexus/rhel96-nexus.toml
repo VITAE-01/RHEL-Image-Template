@@ -1,0 +1,23 @@
+name = "rhel96-nexus"
+description = "RHEL 9.6 nexus repository server blueprint"
+version = "0.0.1"
+packages = []
+modules = []
+groups = []
+distro = "rhel-9.6"
+
+[customizations]
+
+[customizations.bootloader]
+hybrid = true
+
+[customizations.locale]
+keyboard = "gb"
+
+[customizations.timezone]
+timezone = "Europe/London"
+
+[customizations.installer]
+
+[customizations.installer.kickstart]
+contents = "text --non-interactive\nreboot --eject\nfirstboot --disable\n\nrootpw --iscrypted $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/\nuser --name support --password $6$3EUw3vaKQFZMlI7A$lBJ5x6mqsba/dY59k1ziGdmZu7u/ckGzv1WL7UVEEBjkfOs3bchAXTQSZk6/faqPAQ2r198jfHispzCiWQ288/ --iscrypted --groups wheel\n\nzerombr\nignoredisk --only-use=sda\nclearpart --all --initlabel --disklabel=gpt\nreqpart\npart /boot --fstype=xfs --ondisk=sda --size=1024\npart pv.0 --fstype=lvmpv --ondisk=sda --size=1 --grow\nvolgroup rhel --pesize=4096 pv.0\nlogvol /tmp --vgname=rhel --name=tmp --fstype=xfs --size=4096\nlogvol /var --vgname=rhel --name=var --fstype=xfs --size=4096\nlogvol / --vgname=rhel --name=root --fstype=xfs --size=5120\nlogvol /home --vgname=rhel --name=home --fstype=xfs --size=4096\nlogvol /opt --vgname=rhel --name=opt --fstype=xfs --size=5120\nlogvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=4096\nlogvol /opt/sonatype --vgname=rhel --name=lv_nexus --fstype=xfs --size=25600\nlogvol swap --vgname=rhel --name=swap --fstype=swap --size=2048\nlogvol /var/tmp --vgname=rhel --name=var_tmp --fstype=xfs --size=2048\nlogvol /var/log --vgname=rhel --name=var_log --fstype=xfs --size=4096\nnetwork --bootproto=dhcp --device=ens18 --ipv6=auto --activate\n"
