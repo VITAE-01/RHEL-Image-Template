@@ -6,6 +6,7 @@ This repository contains declarative RHEL 9.6 image blueprints for osbuild-compo
 
 - `generic/` — baseline server
 - `jenkins/` — Jenkins server
+- `nexus/` — Nexus Repository server
 - `os-composer/` — osbuild-composer server
 
 Each profile has two representations with the same blueprint name: an extensionless blueprint and a `.toml` file. Both describe the profile metadata and installer Kickstart customization. Keep them synchronized when changing a profile. `README.md` documents the current profiles, system requirements, and build workflow.
