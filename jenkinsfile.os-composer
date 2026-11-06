@@ -25,7 +25,7 @@ pipeline {
         return ["proxmox", "aws"]
         }'''])
         reactiveChoice choiceType: 'PT_SINGLE_SELECT', description: 'Intended system role.', filterLength: 1, filterable: false, name: 'SYSTEM_WORKLOAD', randomName: 'choice-parameter-30116780822655', referencedParameters: 'OS_VERSION', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: "return ['Script error - check parameter config']"], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (OS_VERSION== "9.6") {
-        return ["generic", "jenkins", "os-composer"]
+        return ["generic", "jenkins", "nexus", "os-composer"]
         }'''])
         reactiveChoice choiceType: 'PT_SINGLE_SELECT', description: 'The image format. proxmox builds an image installer ISO; aws builds an ami;', filterLength: 1, filterable: false, name: 'IMAGE_FORMAT', randomName: 'choice-parameter-27718535665744', referencedParameters: 'INFRASTRUCTURE_CENTER', script: groovyScript(fallbackScript: [classpath: [], oldScript: '', sandbox: true, script: "return ['Script error - check parameter config']"], script: [classpath: [], oldScript: '', sandbox: true, script: '''if (INFRASTRUCTURE_CENTER== "proxmox") {
         return ["image-installer"]
