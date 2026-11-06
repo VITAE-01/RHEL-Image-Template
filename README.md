@@ -18,6 +18,9 @@ profiles/
     ├── jenkins/
     │   ├── rhel96-jenkins
     │   └── rhel96-jenkins.toml
+    ├── nexus/
+    │   ├── rhel96-nexus
+    │   └── rhel96-nexus.toml
     └── os-composer/
         ├── rhel96-os-composer
         └── rhel96-os-composer.toml
@@ -47,21 +50,22 @@ All profiles share the following configuration:
 Separate `/tmp`, `/var`, `/var/tmp`, `/var/log` and `/var/log/audit` volumes
 are defined in every profile. Logical volume sizes (GiB): This is a very minimal setup so adjust sizes to fit your system workload.
 
-| Mount point | `rhel96-generic` | `rhel96-jenkins` | `rhel96-os-composer` |
-| --- | --- | --- | --- |
-| `/` | 4 | 5 | 5 |
-| `/tmp` | 1.5 | 4 | 4 |
-| `/var` | 4 | 4 | 4 |
-| `/var/tmp` | 2 | 2 | 3 |
-| `/var/log` | 2 | 4 | 3 |
-| `/var/log/audit` | 1 | 4 | 4 |
-| `/home` | 2 | 4 | 2 |
-| `/opt` | 2 | 5 | 5 |
-| `/var/lib/jenkins` | – | 14 | – |
-| `/var/cache/osbuild-worker` | – | – | 20 |
-| `/var/lib/osbuild-composer` | – | – | 10 |
-| swap | 2 | 2 | 2 |
-| **Total LVM** | **20.5** (24GB) | **48** (60GB) | **62** (64GB) |
+| Mount point | `rhel96-generic` | `rhel96-jenkins` | `rhel96-nexus` | `rhel96-os-composer` |
+| --- | --- | --- | --- | --- |
+| `/` | 4 | 5 | 5 | 5 |
+| `/tmp` | 1.5 | 4 | 4 | 4 |
+| `/var` | 4 | 4 | 4 | 4 |
+| `/var/tmp` | 2 | 2 | 2 | 3 |
+| `/var/log` | 2 | 4 | 4 | 3 |
+| `/var/log/audit` | 1 | 4 | 4 | 4 |
+| `/home` | 2 | 4 | 4 | 2 |
+| `/opt` | 2 | 5 | 5 | 10 |
+| `/var/lib/jenkins` | – | 14 | – | – |
+| `/opt/sonatype` | – | – | 25 | – |
+| `/var/cache/osbuild-worker` | – | – | – | 20 |
+| `/var/lib/osbuild-composer` | – | – | – | 10 |
+| swap | 2 | 2 | 2 | 2 |
+| **Total LVM** | **20.5** (24GB) | **48** (60GB) | **59** (64GB) | **62** (64GB) |
 
 ### Generic profile hardening
 
@@ -79,7 +83,7 @@ Level 2 – Server**:
 - Pre generate profile ID blueprint template and modify to fit your requirements using
   `oscap xccdf generate fix --profile=cis --fix-type=blueprint /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml`
 
-The Jenkins and OS Composer profiles do not include the OpenSCAP profile.
+The Jenkins, Nexus and OS Composer profiles do not include the OpenSCAP profile.
 
 ## System requirements
 * System type: A dedicated RHEL host machine
@@ -200,7 +204,7 @@ composer-cli blueprints show rhel96-generic
 composer-cli blueprints depsolve rhel96-generic
 ```
 
-Replace the path and blueprint name to build the Jenkins or OS Composer
+Replace the path and blueprint name to build the Jenkins, Nexus or OS Composer
 profile. `composer-cli blueprints save <blueprint-name>` can save a copy of a
 blueprint from the Composer service.
 
