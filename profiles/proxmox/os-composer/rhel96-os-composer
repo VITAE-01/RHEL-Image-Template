@@ -32,7 +32,7 @@ logvol /tmp --vgname=rhel --name=tmp --fstype=xfs --size=4096
 logvol /var --vgname=rhel --name=var --fstype=xfs --size=4096
 logvol / --vgname=rhel --name=root --fstype=xfs --size=5120
 logvol /home --vgname=rhel --name=home --fstype=xfs --size=2048
-logvol /opt --vgname=rhel --name=opt --fstype=xfs --size=5120
+logvol /opt --vgname=rhel --name=opt --fstype=xfs --size=10240
 logvol /var/log/audit --vgname=rhel --name=audit --fstype=xfs --size=4096
 logvol /var/cache/osbuild-worker --vgname=rhel --name=lv_osbuild_worker --fstype=xfs --size=20480
 logvol /var/lib/osbuild-composer --vgname=rhel --name=lv_osbuild_composer --fstype=xfs --size=10240
