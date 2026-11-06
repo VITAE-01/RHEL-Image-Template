@@ -7,7 +7,6 @@ pipeline {
 
     options {
         timestamps()
-        // Cleanup deletes the blueprint from the shared Composer host, so only one build may run at a time.
         disableConcurrentBuilds()
         timeout(time: 3, unit: 'HOURS')
         buildDiscarder logRotator(artifactDaysToKeepStr: '3', artifactNumToKeepStr: '3', daysToKeepStr: '', numToKeepStr: '3')
@@ -63,7 +62,6 @@ pipeline {
                     if (!(params.INFRASTRUCTURE_CENTER in ['proxmox','aws']) || !(params.IMAGE_FORMAT in ['image-installer','ami'])) { 
                         error 'Parameters are not set. ; Run job with "Build with Parameters".'
                      }
-
 
                     if (params.INFRASTRUCTURE_CENTER == 'aws') {
                         def missing = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'AWS_S3_BUCKET'].findAll {
@@ -124,14 +122,18 @@ pipeline {
             steps {
                 timeout(time: 150, unit: 'MINUTES') {
                     script {
+                        def last = ''
                         while (true) {
-                            def status = sh(returnStdout: true,
-                                            script: 'composer-cli compose info "${COMPOSE_UUID}" | awk \'NR==1 {print $2}\'').trim()
+                            def status = sh(returnStdout: true, label: 'Check compose status', script: '''#!/bin/bash
+                                composer-cli compose info "${COMPOSE_UUID}" | awk 'NR==1 {print $2}'
+                            ''').trim()
                             if (!status) {
                                 error 'Could not read compose status'
                             }
-                            echo "Compose ${env.COMPOSE_UUID}: ${status}"
-
+                            if (status != last) {
+                                echo "Compose ${env.COMPOSE_UUID}: ${status}"
+                                last = status
+                            }
                             if (status == 'FINISHED') {
                                 break
                             }
@@ -167,10 +169,24 @@ pipeline {
                         fi
 
                         mv "${isos[0]}" "${ISO_NAME}"
-                        tar -czf "${ISO_NAME}.tar.gz" "${ISO_NAME}"
-                        rm -f "${ISO_NAME}"
-                        ls -lh "${ISO_NAME}.tar.gz"
+                        echo "${ISO_NAME} image size is $(du -h "${ISO_NAME}" | cut -f1)"
                     '''
+
+                    withCredentials([usernamePassword(credentialsId: 'jenkins-dev',
+                                                      usernameVariable: 'ISO_USER',
+                                                      passwordVariable: 'SSHPASS')]) {
+                        sh '''#!/bin/bash
+                            set -euo pipefail
+                            ssh_opts=(-o StrictHostKeyChecking=accept-new)
+                            remote="${ISO_USER}@${ISO_HOST}"
+
+                            sshpass -e scp "${ssh_opts[@]}" "${ISO_NAME}" "${remote}:${ISO_REPO_URL}/${ISO_NAME}.part"
+                            sshpass -e ssh "${ssh_opts[@]}" "${remote}" \
+                                "mv -f '${ISO_REPO_URL}/${ISO_NAME}.part' '${ISO_REPO_URL}/${ISO_NAME}'"
+
+                            echo "Published ${ISO_NAME} to ${ISO_HOST}"
+                        '''
+                    }
                 }
             }
         }
