@@ -182,7 +182,7 @@ pipeline {
 
                             sshpass -e scp "${ssh_opts[@]}" "${ISO_NAME}" "${remote}:${ISO_REPO_URL}/${ISO_NAME}.part"
                             sshpass -e ssh "${ssh_opts[@]}" "${remote}" \
-                                "mv -f '${ISO_REPO_URL}/${ISO_NAME}.part' '${ISO_REPO_URL}/${ISO_NAME}'"
+                                "mv -f '${ISO_REPO_URL}/${ISO_NAME}.part' '${ISO_REPO_URL}/${ISO_NAME}' && chmod 0755 -R '${ISO_REPO_URL}'"
 
                             echo "Published ${ISO_NAME} to ${ISO_HOST}"
                         '''
